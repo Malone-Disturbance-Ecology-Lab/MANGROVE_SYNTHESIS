@@ -1,6 +1,9 @@
-# Multidimensional scaling of site data:
+# Multidimensional scaling of site data: https://uc-r.github.io/kmeans_clustering
+
+# This analysis is done by quantile, month, and annual for each site to understand dissimilarity between the dites:
 
 library(stringr)
+library(factoextra)
 
 # Data is on the MaloneLab server:
 
@@ -17,8 +20,9 @@ for(i in 1:length(file.names)){
 }
 
 # Format the date:
+data$dates <- format( data$dates , format="%Y%m%d%H")
 
-
+data %>% summary
 # Create a summary of the data for a simple MDS
 library(tidyverse)
 Data.summary.25 <- data %>% reframe( .by=Site, 
@@ -69,7 +73,7 @@ Data.summary.annual <- data %>% reframe( .by=Site,
 
 
 # Scaling:
-distance <- dist(Data.Summary[, 2:10] ) # euclidean distances between the rows
+distance <- dist(Data.Summary[, 2:9] %>% scale ) # euclidean distances between the rows
 fit <- cmdscale(distance ,eig=TRUE, k=2)
 
 Data.Summary$x <- fit$points[,1]
@@ -79,12 +83,27 @@ library(ggplot2)
 
 ggplot( data = Data.Summary) + geom_point( aes(x= x , y = y, col = Site, shape = Quantile ))
 
-
-distance.annual <- dist(Data.summary.annual[, 2:10] ) # euclidean distances between the rows
-fit.annual<- cmdscale(distance.annual ,eig=TRUE, k=4)
+library( usedist)
+distance.annual <- dist(Data.summary.annual[, 2:9] %>% scale  ) # euclidean distances between the rows
+distance.annual <- dist_setNames(distance.annual, Data.Summary$Site[1:8])
+fit.annual <- cmdscale(distance.annual ,eig=TRUE, k=4)
 
 Data.Summary$x.annual <- fit.annual$points[,1]
 Data.Summary$y.annual <- fit.annual$points[,2]
 
 ggplot( data = Data.Summary) + geom_point( aes(x= x.annual , y = y.annual, col = Site, shape = Quantile ))
 
+# Cluster analysis and Explanation of clusters:
+library(caret)
+
+cluster.annual <- distance.annual %>% kmeans( centers = 3, nstart = 30)
+Data.Summary$cluster.annual <- cluster.annual$cluster %>% as.factor
+
+
+library(ggforce)
+
+ggplot( data = Data.Summary, aes(x= x.annual , y = y.annual, col = cluster.annual, label=Site )) + geom_point( ) + geom_text(nudge_y = 0.15, nudge_x =- 0.15, size = 2) 
+
+fviz_dist(distance.annual, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+
+fviz_cluster(cluster.annual, data= Data.Summary[, c('x.annual', 'y.annual')])
