@@ -4,8 +4,10 @@
 
 library(stringr)
 library(factoextra)
-
-# Data is on the MaloneLab server:
+library(tidyverse)
+library(ggplot2)
+library( usedist)
+# Data is on the Malone Lab server:
 
 files <- list.files( '/Volumes/MaloneLab/Research/Mangrove_Synthesis/ERA_Site_DATA', full.names = TRUE)
 file.names <- list.files( '/Volumes/MaloneLab/Research/Mangrove_Synthesis/ERA_Site_DATA', full.names = FALSE)
@@ -22,21 +24,9 @@ for(i in 1:length(file.names)){
 # Format the date:
 data$dates <- format( data$dates , format="%Y%m%d%H")
 
-data %>% summary
-# Create a summary of the data for a simple MDS
-library(tidyverse)
-Data.summary.25 <- data %>% reframe( .by=Site, 
-                                  ERA5_2T = quantile(ERA5_2T , 0.25),
-                                  ERA5_ST = quantile(ERA5_ST , 0.25),
-                                  ERA5_Turb = quantile(ERA5_Turb , 0.25),
-                                  ERA5_SW_IN = quantile(ERA5_SW_IN , 0.25),
-                                  ERA5_TP = quantile(ERA5_TP , 0.25),
-                                  ERA5_VPD = quantile(ERA5_VPD , 0.25),
-                                  ERA5_WS = quantile(ERA5_WS , 0.25),
-                                  ERA5_NetRad = quantile(ERA5_NetRad , 0.25),
-                                  Quantile=0.25 %>% as.factor)
 
-Data.summary.5 <- data %>% reframe( .by=Site, 
+# Create a summary of the data for a simple MDS
+Data.summary.annual <- data %>% reframe( .by=Site, 
                                      ERA5_2T = quantile(ERA5_2T , 0.5),
                                      ERA5_ST = quantile(ERA5_ST , 0.5),
                                      ERA5_Turb = quantile(ERA5_Turb , 0.5),
@@ -45,59 +35,30 @@ Data.summary.5 <- data %>% reframe( .by=Site,
                                      ERA5_VPD = quantile(ERA5_VPD , 0.5),
                                      ERA5_WS = quantile(ERA5_WS , 0.5),
                                      ERA5_NetRad = quantile(ERA5_NetRad , 0.5),
-                                     Quantile=0.5 %>% as.factor)
-
-Data.summary.75 <- data %>% reframe( .by=Site, 
-                                     ERA5_2T = quantile(ERA5_2T , 0.75),
-                                     ERA5_ST = quantile(ERA5_ST , 0.75),
-                                     ERA5_Turb = quantile(ERA5_Turb , 0.75),
-                                     ERA5_SW_IN = quantile(ERA5_SW_IN , 0.75),
-                                     ERA5_TP = quantile(ERA5_TP , 0.75),
-                                     ERA5_VPD = quantile(ERA5_VPD , 0.75),
-                                     ERA5_WS = quantile(ERA5_WS , 0.75),
-                                     ERA5_NetRad = quantile(ERA5_NetRad , 0.75),
-                                     Quantile=0.75 %>% as.factor)
-
-Data.Summary <- rbind(Data.summary.25, Data.summary.5, Data.summary.75 )
-
-Data.summary.annual <- data %>% reframe( .by=Site, 
-                                    ERA5_2T = quantile(ERA5_2T , 0.5),
-                                    ERA5_ST = quantile(ERA5_ST , 0.5),
-                                    ERA5_Turb = quantile(ERA5_Turb , 0.5),
-                                    ERA5_SW_IN = quantile(ERA5_SW_IN , 0.5),
-                                    ERA5_TP = quantile(ERA5_TP , 0.5),
-                                    ERA5_VPD = quantile(ERA5_VPD , 0.5),
-                                    ERA5_WS = quantile(ERA5_WS , 0.5),
-                                    ERA5_NetRad = quantile(ERA5_NetRad , 0.5),
-                                    Quantile=0.5 %>% as.factor)
-
+                                    
+                                    ERA5_2T.var = var(ERA5_2T),
+                                    ERA5_ST.var = var(ERA5_ST),
+                                    ERA5_Turb.var = var(ERA5_Turb),
+                                    ERA5_SW_IN.var = var(ERA5_SW_IN),
+                                    ERA5_TP.var = var(ERA5_TP),
+                                    ERA5_VPD.var = var(ERA5_VPD),
+                                    ERA5_WS.var = var(ERA5_WS ),
+                                    ERA5_NetRad.var = var(ERA5_NetRad ))
 
 # Scaling:
-distance <- dist(Data.Summary[, 2:9] %>% scale ) # euclidean distances between the rows
-fit <- cmdscale(distance ,eig=TRUE, k=2)
+Data.summary.annual %>% names
+distance.annual <- dist(Data.summary.annual[, 2:17] %>% scale ) # euclidean distances between the rows
+distance.annual <- dist_setNames(distance.annual, Data.summary.annual$Site[1:8])
+fit.annual <- cmdscale(distance.annual ,eig=TRUE, k=2)
 
-Data.Summary$x <- fit$points[,1]
-Data.Summary$y <- fit$points[,2]
-
-library(ggplot2)
-
-ggplot( data = Data.Summary) + geom_point( aes(x= x , y = y, col = Site, shape = Quantile ))
-
-library( usedist)
-distance.annual <- dist(Data.summary.annual[, 2:9] %>% scale  ) # euclidean distances between the rows
-distance.annual <- dist_setNames(distance.annual, Data.Summary$Site[1:8])
-fit.annual <- cmdscale(distance.annual ,eig=TRUE, k=4)
-
-Data.Summary$x.annual <- fit.annual$points[,1]
-Data.Summary$y.annual <- fit.annual$points[,2]
-
-ggplot( data = Data.Summary) + geom_point( aes(x= x.annual , y = y.annual, col = Site, shape = Quantile ))
+Data.summary.annual$x.annual <- fit.annual$points[,1]
+Data.summary.annual$y.annual <- fit.annual$points[,2]
 
 # Cluster analysis and Explanation of clusters:
 library(caret)
 
 cluster.annual <- distance.annual %>% kmeans( centers = 3, nstart = 30)
-Data.Summary$cluster.annual <- cluster.annual$cluster %>% as.factor
+Data.summary.annual$cluster.annual <- cluster.annual$cluster %>% as.factor
 
 
 library(ggforce)
