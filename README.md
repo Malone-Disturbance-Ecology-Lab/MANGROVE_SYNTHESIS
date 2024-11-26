@@ -13,7 +13,7 @@ Apply LAI data QAQC checks for MODLAND, CloudState, Aerosol, Cirrus, Internal_Cl
 Apply NDVI data QAQC checks for MODLAND, Adjacent_cloud_detected, Atmosphere_BRDF_Correction, Mixed_Clouds, and Possible_shadow
 Writes out timetables for each site.
 
-**00_MODISdata.m**
+**00_USTAR_filter_flux_data.m**
 Reads in AmeriFLux data for SRS6, FLUXNET data for HKMPM
 At SRS6:
 Calculate CO2 NEE (FC+SC) and CH4 NEE (FCH4+SCH4)
