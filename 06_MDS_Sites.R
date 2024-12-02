@@ -7,8 +7,9 @@ library(factoextra)
 library(tidyverse)
 library(ggplot2)
 library( usedist)
-# Data is on the Malone Lab server:
+library(ggforce)
 
+# Data is on the Malone Lab server:
 files <- list.files( '/Volumes/MaloneLab/Research/Mangrove_Synthesis/ERA_Site_DATA', full.names = TRUE)
 file.names <- list.files( '/Volumes/MaloneLab/Research/Mangrove_Synthesis/ERA_Site_DATA', full.names = FALSE)
 
@@ -59,9 +60,6 @@ library(caret)
 
 cluster.annual <- distance.annual %>% kmeans( centers = 3, nstart = 30)
 Data.summary.annual$cluster.annual <- cluster.annual$cluster %>% as.factor
-
-
-library(ggforce)
 
 ggplot( data = Data.Summary, aes(x= x.annual , y = y.annual, col = cluster.annual, label=Site )) + geom_point( ) + geom_text(nudge_y = 0.15, nudge_x =- 0.15, size = 2) 
 
