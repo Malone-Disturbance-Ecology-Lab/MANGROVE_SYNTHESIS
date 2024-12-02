@@ -81,7 +81,7 @@ Models CH4, then gapfills CH4 data
 Writes out CH4 gapfilled data
 
 **06_MDS_SITES.R**
-Reads in compiled Flux data, ERA5 data, MODIS data for all sites, creates a distance matrix,multidimensional scaling and visualizes the dissimilarity between sites. Explore potenial approaches for scaling model results. 
+Reads in compiled Flux data, ERA5 data, MODIS data for all sites, creates a distance matrix, multidimensional scaling and visualizes the dissimilarity between sites. Explore potenial approaches for scaling model results. 
 
 **06_VariableSelection.R**
-
+Reads in compiled Flux data, ERA5 data, MODIS data for all sites and variable selection, model fit, and validation is performed.
