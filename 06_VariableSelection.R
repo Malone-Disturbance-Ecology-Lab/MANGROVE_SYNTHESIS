@@ -1,24 +1,22 @@
 # Sample code for Variable selections
 
+load( file='/Volumes/MaloneLab/Research/Mangrove_Synthesis/HarmonizedData.RDATA')
+data %>% names
 # Train and Test data
+data.sites <- data %>% select("date", "ERA5_2T","ERA5_ST","ERA5_Turb","ERA5_SW_IN",
+                "ERA5_TP","ERA5_VPD","ERA5_WS","ERA5_NetRad","LANDSAT_NDVI", "Site")
 
-train <- stratified(driver.analysis, c("Severity","PostDateDif",
-                                       "pdsi.index","freq.index",
-                                       "model.NDVI", "PreNDVI", "Threshold"), 0.5)
+train <- data.sites %>% sample_frac(0.5) 
 
-train <- driver.analysis %>%
-  sample_frac(0.5) 
+test <- anti_join(data.sites, train, by= 'date')
 
-test <- anti_join(driver.analysis, train, by= 'ptID')
-
-
-driver.analysis %>% summary
+data.sites %>% summary
 train  %>% summary
 test  %>% summary
 
+train  %>% names
 # Correlation Matrix
-train %>% names
-sum.MT <- train[, c(3:6, 8:10,16:21,23, 25:27)] %>% na.omit()
+sum.MT <- train[, c(2:10)] %>% na.omit()
 summary( sum.MT)
 M <- cor(sum.MT)
 corrplot::corrplot(M, method="circle")
@@ -28,9 +26,8 @@ library(VSURF)
 library(parallel)
 
 
-train[, c(3:6, 8:9, 15:19, 25, 35)] %>% names()
 
-T80_rf_index.vsurf <- VSURF(train[, c(3:6, 8:9, 15:19, 25, 35)], train[, 36], ntree = 500,
+T80_rf_index.vsurf <- VSURF(train[, c(2:10)], train[, 36], ntree = 500,
                             RFimplem = "randomForest", 
                             clusterType = "PSOCK", 
                             verbose = TRUE,
