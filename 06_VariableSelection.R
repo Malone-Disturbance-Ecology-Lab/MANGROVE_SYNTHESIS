@@ -1,51 +1,83 @@
-# Sample code for Variable selections
+# Sample Code for Variable Selections
 
-load( file='/Volumes/MaloneLab/Research/Mangrove_Synthesis/HarmonizedData.RDATA')
-data %>% names
-# Train and Test data
-data.sites <- data %>% select("date", "ERA5_2T","ERA5_ST","ERA5_Turb","ERA5_SW_IN",
-                "ERA5_TP","ERA5_VPD","ERA5_WS","ERA5_NetRad","LANDSAT_NDVI", "Site")
+# Create a model for SRS6, HK, and one for both sites. 
 
-train <- data.sites %>% sample_frac(0.5) 
+library(tidyverse)
+library(VSURF)
+library(parallel)
+library(randomForest)
 
-test <- anti_join(data.sites, train, by= 'date')
+# Load data:
+load( file='/Volumes/MaloneLab/Research/Mangrove_Synthesis/HarmonizedData.RDATA') 
 
+data.final <- data.final %>%
+  mutate( TIMESTAMP = as.POSIXct(date, format="%d-%b-%Y %H:%M:%S", tz="EST"),
+  Date= as.Date(TIMESTAMP),
+  YearMon = format(Date, "%Y-%m"))
+
+data.final$geometry <- NULL
+LS <- read.csv('/Volumes/MaloneLab/Research/Mangrove_Synthesis/Harmonized Landsat Sentinel/MANGROVE-SYNTHESIS-HLSS30-020-results.csv') %>% 
+  mutate(Site = ID, Date = as.Date(Date)) 
+LS[LS == -9999]<- NA
+
+LS <-  LS %>% mutate( NDVI = (HLSS30_020_B05 - HLSS30_020_B04) / (HLSS30_020_B05 + HLSS30_020_B04),
+                      EVI = 2.5 * ((HLSS30_020_B05 - HLSS30_020_B04) / (HLSS30_020_B05 + 6 * HLSS30_020_B04 -7.5 * HLSS30_020_B02 + 1))) 
+LS$NDVI[ LS$NDVI < 0 ] <- NA
+LS$EVI[ LS$EVI < 0 ] <- NA
+
+
+data.sites <- data.final %>% left_join( LS, by=c('Site', "Date")) 
 data.sites %>% summary
-train  %>% summary
-test  %>% summary
 
-train  %>% names
+
+# Train and Test data
+
+
+data.sub <- data.sites  %>% filter(Site == "HKMPM"| Site == "SRS6") %>% select(
+  'date', 'Site', 'ERA5_2T',  'ERA5_ST', 'ERA5_Turb', 'ERA5_SW_IN', 'ERA5_TP',
+  'ERA5_VPD',   'ERA5_WS', 'ERA5_NetRad',  'LANDSAT_NDVI', 
+  'MODIS_NDVI', 'MODIS_LAI', 'NEE', 'FCH4', "MangroveHeight", "NDVI", 'EVI') %>% na.omit
+
+# Landsat Sentinel Data:
+# Calculate Indices:
+
+data.train <- data.sub %>% sample_frac(0.25) 
+data.test <- anti_join(data.sub, data.train)
+
+
+
+
 # Correlation Matrix
-sum.MT <- train[, c(2:10)] %>% na.omit()
+data.train %>% names
+sum.MT <- data.train[, c(3:18)] %>% na.omit()
 summary( sum.MT)
 M <- cor(sum.MT)
 corrplot::corrplot(M, method="circle")
 
 
-library(VSURF)
-library(parallel)
 
-
-
-T80_rf_index.vsurf <- VSURF(train[, c(2:10)], train[, 36], ntree = 500,
+HKMP_rf_index.vsurf <- VSURF(data.train[, c(3:13, 15:18)], data.train[, 14], ntree = 500,
                             RFimplem = "randomForest", 
                             clusterType = "PSOCK", 
                             verbose = TRUE,
                             ncores = detectCores() - 2, parallel= TRUE)
 
-T80_rf_index.vars <-names( train[, c(3:6, 8:9, 15:19, 25, 35)]) [T80_rf_index.vsurf$varselect.pred] 
+HKMP_rf_index.vars <-names( data.train[, c(3:13, 15:18)]) [HKMP_rf_index.vsurf$varselect.thres] 
 
-T80_rf_index <- randomForest( rec.status ~ .,
-                              data= train %>% select(c(rec.status, all_of(T80_rf_index.vars))),
+HKMP_rf_index <- randomForest( FCH4 ~ .,
+                              data= data.train,
                               importance=TRUE,
                               predicted=TRUE,
                               keep.inbag=TRUE)
 
-T80_rf_index 
+HKMP_rf_index 
 
-varImpPlot(T80_rf_index)
+varImpPlot(HKMP_rf_index)
 
-train$T80_rf_index <- predict(T80_rf_index , train)
+data.train$HKMP_rf_index <- predict(HKMP_rf_index , data.train)
+data.test$HKMP_rf_index <- predict(HKMP_rf_index , data.test)
+
+lm( data = data.test, FCH4 ~ HKMP_rf_index ) %>%  summary
+
 # Save Model 
-
-save(T80_rf_index, test, train,T80_rf_index.vars , file="RF_threshold_index.RDATA")
+save(HKMP_rf_index, data.HKMP.test, data.HKMP.train,HKMP_rf_index.vars , file="RF_Models.RDATA")
