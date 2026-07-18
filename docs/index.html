@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mangrove Synthesis — Malone Lab</title>
+<meta name="description" content="A multi-site synthesis of CO2 and CH4 flux towers across mangrove-dominated ecosystems.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-blue:    #2a78d6;
+    --status-good:    #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-blue:    #3987e5;
+      --status-good:    #0ca30c;
+      --status-warning: #fab219;
+      --status-serious: #ec835a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-blue:    #3987e5;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  header.hero {
+    padding: 56px 0 36px;
+    border-bottom: 1px solid var(--border);
+  }
+  header.hero .kicker {
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  header.hero h1 {
+    font-size: 34px;
+    margin: 10px 0 12px;
+    letter-spacing: -0.01em;
+  }
+  header.hero p.lede {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 640px;
+  }
+
+  section { padding: 44px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  section h2 {
+    font-size: 21px;
+    margin: 0 0 8px;
+  }
+  section p.section-dek {
+    color: var(--text-secondary);
+    margin: 0 0 22px;
+    max-width: 680px;
+  }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  /* --- Map --- */
+  #map { height: 440px; width: 100%; border-radius: 10px; }
+  .legend-row {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    margin-top: 14px; font-size: 13px; color: var(--text-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+
+  /* --- Scatter --- */
+  .scatter-card { padding: 20px 20px 12px; }
+  #scatter { width: 100%; height: auto; display: block; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; }
+  .grid-line { stroke: var(--gridline); stroke-width: 1; }
+  .baseline-line { stroke: var(--baseline); stroke-width: 1; }
+  .pt { stroke: var(--surface-1); stroke-width: 1.5px; cursor: pointer; }
+  .pt-label { font-size: 10.5px; fill: var(--text-secondary); pointer-events: none; }
+
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    display: none; z-index: 10; max-width: 220px;
+  }
+  #tooltip .t-name { font-weight: 600; margin-bottom: 2px; }
+  #tooltip .t-row { color: var(--text-secondary); }
+
+  .table-toggle {
+    font-size: 13px; color: var(--series-blue); cursor: pointer;
+    background: none; border: none; padding: 0; margin-top: 10px;
+    text-decoration: underline;
+  }
+  table.site-table {
+    width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px;
+    display: none;
+  }
+  table.site-table th, table.site-table td {
+    text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--gridline);
+  }
+  table.site-table th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
+
+  /* --- Collaborate --- */
+  .collab-card {
+    padding: 26px 26px;
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between;
+  }
+  .collab-card .collab-text { flex: 1 1 380px; }
+  .collab-card h3 { margin: 0 0 8px; font-size: 18px; }
+  .collab-card p { margin: 0; color: var(--text-secondary); }
+  .cta-group { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
+  .btn {
+    display: inline-block; text-align: center;
+    padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    text-decoration: none; border: 1px solid var(--border);
+  }
+  .btn-primary { background: var(--series-blue); color: #fff; border-color: transparent; }
+  .btn-secondary { background: transparent; color: var(--text-primary); }
+
+  footer {
+    padding: 26px 0 50px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+  }
+  footer a { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Malone Disturbance Ecology Lab</div>
+    <h1>Mangrove Carbon Synthesis</h1>
+    <p class="lede">
+      Understanding carbon dynamics across mangrove-dominated ecosystems by
+      combining eddy covariance CO<sub>2</sub> and CH<sub>4</sub> flux towers with
+      remote sensing and reanalysis data into a general, transferable model.
+    </p>
+  </div>
+</header>
+
+<section id="goals">
+  <div class="wrap">
+    <h2>Project goals</h2>
+    <p class="section-dek">
+      Mangroves are among the most carbon-dense ecosystems on Earth, but tower-based
+      flux measurements are sparse and scattered across independent research groups.
+      This project's goal is to <strong>understand carbon dynamics across
+      mangrove-dominated ecosystems</strong> by assembling a multi-site synthesis
+      of eddy covariance CO<sub>2</sub> and CH<sub>4</sub> flux records, paired with
+      ERA5 meteorology, MODIS/Landsat vegetation indices, and canopy structure, to
+      train a model that generalizes across climates, tidal regimes, and
+      restoration states rather than describing any single site in isolation.
+    </p>
+  </div>
+</section>
+
+<section id="map-section">
+  <div class="wrap">
+    <h2>Tower locations</h2>
+    <p class="section-dek">
+      Every site currently identified for the synthesis, colored by data status.
+      Click a marker for site details.
+    </p>
+    <div class="card">
+      <div id="map"></div>
+    </div>
+    <div class="legend-row" id="map-legend"></div>
+  </div>
+</section>
+
+<section id="climate-section">
+  <div class="wrap">
+    <h2>Climate space: MAT vs. MAP</h2>
+    <p class="section-dek">
+      Where each tower sits in mean-annual-temperature / mean-annual-precipitation
+      space, using a single consistent climatology
+      (<a href="https://power.larc.nasa.gov/" target="_blank" rel="noopener">NASA POWER</a>,
+      long-term point climatology) so every site is comparable on the same basis.
+    </p>
+    <div class="card scatter-card">
+      <svg id="scatter" viewBox="0 0 780 460" preserveAspectRatio="xMidYMid meet"></svg>
+      <button class="table-toggle" id="table-toggle-scatter">View as table</button>
+      <table class="site-table" id="scatter-table">
+        <thead><tr><th>Site</th><th>MAT (°C)</th><th>MAP (mm/yr)</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="collaborate">
+  <div class="wrap">
+    <h2>Contribute your tower's data</h2>
+    <p class="section-dek">
+      This synthesis is only as good as the sites in it. If you operate — or know
+      of — an eddy covariance flux tower over mangrove, we'd like to include it.
+    </p>
+    <div class="card collab-card">
+      <div class="collab-text">
+        <h3>Share your flux data, join the synthesis</h3>
+        <p>
+          We're looking for CO<sub>2</sub> and/or CH<sub>4</sub> eddy covariance
+          records from mangrove-dominated sites of any duration, in any tidal or
+          climate setting. Contributors are invited as collaborators on any
+          resulting products, with full credit and co-authorship where
+          appropriate — not just a data acknowledgment.
+        </p>
+      </div>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="mailto:sparkle.malone@yale.edu?subject=Mangrove%20flux%20tower%20data%20-%20collaboration%20inquiry">Email the lab</a>
+        <a class="btn btn-secondary" href="https://github.com/Malone-Disturbance-Ecology-Lab/MANGROVE_SYNTHESIS/issues/new" target="_blank" rel="noopener">Open a GitHub issue</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Site coordinates, canopy heights, and available flux years are tracked in
+    <a href="https://github.com/Malone-Disturbance-Ecology-Lab/MANGROVE_SYNTHESIS/blob/main/Site_Information/Master_Tower_Table.csv" target="_blank" rel="noopener">Master_Tower_Table.csv</a>.
+    Climate normals: NASA POWER point climatology. Page generated for the
+    Malone Disturbance Ecology Lab, Yale School of the Environment.
+  </div>
+</footer>
+
+<div id="tooltip"></div>
+
+<script>
+const sites = [
+  {name:"SRS6", country:"USA (Florida)", land_use:"Natural (riverine mangrove)", lat:25.3629, lon:-81.0776, canopy:20, co2:"2017-2023", ch4:"2017-2023", status:"good", statusLabel:"Data in hand", mat:25.0, map:1326},
+  {name:"HKMPM", country:"Hong Kong SAR (China)", land_use:"Natural mangrove", lat:22.498139, lon:114.029306, canopy:6.5, co2:"2016-2018", ch4:"2016-2018", status:"good", statusLabel:"Data in hand", mat:23.5, map:1472},
+  {name:"Aojiang", country:"China (Zhejiang)", land_use:"Restored mangrove", lat:27.582855, lon:120.570578, canopy:4, co2:"2017-2023", ch4:"2020-2022", status:"good", statusLabel:"Data in hand", mat:18.7, map:1698},
+  {name:"Yunxiao", country:"China (Fujian)", land_use:"Natural mangrove", lat:23.924, lon:117.4147, canopy:null, co2:"2009-2012", ch4:"unconfirmed", status:"warning", statusLabel:"Metadata only - need data", mat:21.1, map:1406},
+  {name:"Nansha", country:"China (Guangzhou)", land_use:"Restored mangrove", lat:22.59778, lon:113.633324, canopy:4, co2:"2019-2022", ch4:"2019-2022", status:"serious", statusLabel:"Contact needed", mat:23.5, map:1472},
+  {name:"Cauvery (Pichavaram)", country:"India (Tamil Nadu)", land_use:"Natural mangrove", lat:11.426667, lon:79.793889, canopy:7.5, co2:"2016-2020", ch4:"~2018-2020", status:"serious", statusLabel:"Contact needed", mat:28.2, map:1070},
+  {name:"Sundarbans", country:"India (West Bengal)", land_use:"Natural mangrove", lat:21.815278, lon:88.630278, canopy:5, co2:"2012-2016", ch4:"Apr-May 2012 only", status:"serious", statusLabel:"Contact needed", mat:26.2, map:1830},
+  {name:"Nanji", country:"China (Zhejiang)", land_use:"Natural mangrove", lat:27.476316, lon:121.053208, canopy:null, co2:"2020-2022", ch4:"unconfirmed", status:"serious", statusLabel:"Contact needed", mat:19.9, map:1717},
+  {name:"Gaoqiao", country:"China (Guangdong)", land_use:"Natural mangrove", lat:21.56, lon:109.76, canopy:null, co2:"2010-2015", ch4:"unconfirmed", status:"warning", statusLabel:"Metadata only - need data", mat:23.5, map:1753},
+  {name:"Leizhou (Aquaculture)", country:"China (Guangdong)", land_use:"Disturbed mangrove", lat:20.94, lon:110.06, canopy:null, co2:"2015-2016", ch4:"unconfirmed", status:"warning", statusLabel:"Metadata only - need data", mat:24.0, map:1724},
+  {name:"Leizhou (Plantation)", country:"China (Guangdong)", land_use:"Restored mangrove", lat:20.94, lon:110.16, canopy:null, co2:"2015-2017", ch4:"unconfirmed", status:"warning", statusLabel:"Metadata only - need data", mat:24.0, map:1724},
+];
+
+const statusColor = {
+  good: getComputedStyleColor("--status-good"),
+  warning: getComputedStyleColor("--status-warning"),
+  serious: getComputedStyleColor("--status-serious"),
+};
+function getComputedStyleColor(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+/* ---------------- Map ---------------- */
+const map = L.map('map', { scrollWheelZoom: false, worldCopyJump: true });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 18
+}).addTo(map);
+
+const markerLatLngs = [];
+sites.forEach(s => {
+  const marker = L.circleMarker([s.lat, s.lon], {
+    radius: 8,
+    color: '#fcfcfb',
+    weight: 1.5,
+    fillColor: statusColor[s.status],
+    fillOpacity: 0.92
+  }).addTo(map);
+  marker.bindPopup(
+    `<strong>${s.name}</strong><br>${s.country}<br>${s.land_use}<br>` +
+    `CO2: ${s.co2}<br>CH4: ${s.ch4}<br><em>${s.statusLabel}</em>`
+  );
+  markerLatLngs.push([s.lat, s.lon]);
+});
+map.fitBounds(markerLatLngs, { padding: [30, 30] });
+
+const legendWrap = document.getElementById('map-legend');
+[["good","Data in hand"],["warning","Metadata only — need data"],["serious","Contact needed"]].forEach(([key,label]) => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `<span class="legend-swatch" style="background:${statusColor[key]}"></span>${label}`;
+  legendWrap.appendChild(item);
+});
+
+/* ---------------- Scatter: MAT (x) vs MAP (y) ---------------- */
+const svg = document.getElementById('scatter');
+const W = 780, H = 460;
+const margin = {top: 20, right: 30, bottom: 46, left: 56};
+const plotW = W - margin.left - margin.right;
+const plotH = H - margin.top - margin.bottom;
+
+const matExtent = [10, 32];
+const mapExtent = [900, 2000];
+
+function xScale(v) { return margin.left + (v - matExtent[0]) / (matExtent[1]-matExtent[0]) * plotW; }
+function yScale(v) { return margin.top + plotH - (v - mapExtent[0]) / (mapExtent[1]-mapExtent[0]) * plotH; }
+
+const ns = "http://www.w3.org/2000/svg";
+function el(tag, attrs) {
+  const e = document.createElementNS(ns, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// gridlines + ticks (x: temperature)
+for (let t = 10; t <= 32; t += 4) {
+  svg.appendChild(el("line", {x1: xScale(t), x2: xScale(t), y1: margin.top, y2: margin.top+plotH, class:"grid-line"}));
+  const lab = el("text", {x: xScale(t), y: margin.top+plotH+18, class:"axis-label", "text-anchor":"middle"});
+  lab.textContent = t + "°C";
+  svg.appendChild(lab);
+}
+// gridlines + ticks (y: precip)
+for (let p = 1000; p <= 2000; p += 250) {
+  svg.appendChild(el("line", {x1: margin.left, x2: margin.left+plotW, y1: yScale(p), y2: yScale(p), class:"grid-line"}));
+  const lab = el("text", {x: margin.left-10, y: yScale(p)+4, class:"axis-label", "text-anchor":"end"});
+  lab.textContent = p;
+  svg.appendChild(lab);
+}
+// baseline axes
+svg.appendChild(el("line", {x1: margin.left, x2: margin.left+plotW, y1: margin.top+plotH, y2: margin.top+plotH, class:"baseline-line"}));
+svg.appendChild(el("line", {x1: margin.left, x2: margin.left, y1: margin.top, y2: margin.top+plotH, class:"baseline-line"}));
+
+// axis titles
+const xTitle = el("text", {x: margin.left+plotW/2, y: H-8, class:"axis-label", "text-anchor":"middle"});
+xTitle.textContent = "Mean annual temperature (°C)";
+svg.appendChild(xTitle);
+const yTitle = el("text", {x: 16, y: margin.top+plotH/2, class:"axis-label", "text-anchor":"middle", transform: `rotate(-90 16 ${margin.top+plotH/2})`});
+yTitle.textContent = "Mean annual precipitation (mm/yr)";
+svg.appendChild(yTitle);
+
+const tooltip = document.getElementById('tooltip');
+const tbody = document.querySelector('#scatter-table tbody');
+
+// Sites with identical climate normals overlap exactly -- nudge duplicates
+// apart for legibility. Tooltip/table always show the true MAT/MAP values.
+const coordGroups = {};
+sites.forEach(s => {
+  const key = s.mat + "," + s.map;
+  (coordGroups[key] = coordGroups[key] || []).push(s);
+});
+Object.values(coordGroups).forEach(group => {
+  group.forEach((s, i) => {
+    if (group.length > 1) {
+      const angle = (i / group.length) * 2 * Math.PI - Math.PI/2;
+      s._dx = Math.cos(angle) * 6;
+      s._dy = Math.sin(angle) * 6;
+      // stack labels vertically below the cluster so multi-word names never overlap
+      s._labelDx = 11;
+      s._labelDy = 4 + i * 13 - ((group.length - 1) * 13) / 2;
+    } else {
+      s._dx = 0; s._dy = 0;
+      s._labelDx = 11; s._labelDy = 4;
+    }
+  });
+});
+
+// Gaoqiao sits close enough to the Leizhou pair (in MAT-MAP space, not an
+// exact duplicate) that the default right-side label collides with theirs --
+// place it above-left instead.
+const gaoqiao = sites.find(s => s.name === "Gaoqiao");
+if (gaoqiao) { gaoqiao._labelDx = -54; gaoqiao._labelDy = -10; }
+
+sites.forEach(s => {
+  const baseCx = xScale(s.mat), baseCy = yScale(s.map);
+  const cx = baseCx + s._dx, cy = baseCy + s._dy;
+  const c = el("circle", {cx, cy, r: 7, class:"pt", fill: statusColor[s.status]});
+  c.addEventListener('mousemove', (e) => {
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 10) + 'px';
+    tooltip.innerHTML = `<div class="t-name">${s.name}</div>
+      <div class="t-row">${s.country}</div>
+      <div class="t-row">MAT ${s.mat}°C &middot; MAP ${s.map} mm/yr</div>
+      <div class="t-row">${s.statusLabel}</div>`;
+  });
+  c.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  svg.appendChild(c);
+
+  const label = el("text", {x: baseCx+s._labelDx, y: baseCy+s._labelDy, class:"pt-label"});
+  label.textContent = s.name;
+  svg.appendChild(label);
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${s.name}</td><td>${s.mat}</td><td>${s.map}</td><td>${s.statusLabel}</td>`;
+  tbody.appendChild(tr);
+});
+
+document.getElementById('table-toggle-scatter').addEventListener('click', (e) => {
+  const t = document.getElementById('scatter-table');
+  const showing = t.style.display === 'table';
+  t.style.display = showing ? 'none' : 'table';
+  e.target.textContent = showing ? 'View as table' : 'Hide table';
+});
+</script>
+</body>
+</html>
